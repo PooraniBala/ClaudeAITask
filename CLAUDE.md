@@ -227,3 +227,36 @@ Example:
 > In `app/api/metrics/[repoId]/route.ts`, add a `GET` handler that fetches commit counts grouped by week for the past 12 weeks. Input: `repoId` path param + JWT from cookie. Output: `ApiResponse<{ week: string; count: number }[]>`. Do not change the schema. Follow the pattern in `app/api/repos/route.ts`.
 
 Vague prompts ("add metrics") produce vague code. CRISP prompts produce reviewable code.
+
+---
+
+## 8. MCP Integration
+
+### Server
+GitHub MCP server (`@modelcontextprotocol/server-github`)
+Configured in `.mcp.json` at project root.
+
+### What It Enables
+- Fetches repo metadata on connect (replaces direct REST calls)
+- Pulls commit frequency, PR stats, contributor data per repo per period
+- Handles GitHub API pagination automatically
+
+### Where MCP Is Used
+| Feature                  | File                                      | MCP Function              |
+|--------------------------|-------------------------------------------|---------------------------|
+| Connect repo             | `app/api/repos/connect/route.ts`          | fetchRepoMetadata         |
+| Sync metrics on connect  | `lib/sync.ts`                             | fetchCommitFrequency      |
+| Sync metrics on demand   | `app/api/repos/[repoId]/sync/route.ts`    | fetchPrStats              |
+| Activity feed data       | `app/api/metrics/[repoId]/route.ts`       | fetchContributors         |
+
+### Sync Strategy
+On-demand fetch → transform → upsert into Metric table.
+Metrics are re-synced if `lastSyncedAt > 1 hour ago` or no records exist for the requested period.
+
+### Rate Limiting
+`McpError RATE_LIMITED` is surfaced to the UI with a `retryAfter` countdown.
+Never retry automatically — always surface to the user.
+
+### Environment Variables
+`GITHUB_TOKEN` — GitHub Personal Access Token
+Required scopes: `repo`, `read:user`, `read:org`

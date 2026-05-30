@@ -1,0 +1,83 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum MetricType {
+  COMMIT_FREQUENCY
+  PR_STATS
+  CONTRIBUTOR_ACTIVITY
+}
+
+enum MetricPeriod {
+  SEVEN_DAYS
+  THIRTY_DAYS
+  NINETY_DAYS
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique @map("email")
+  password_hash String       @map("password_hash")
+  github_token  String?      @map("github_token") @db.Text
+  created_at    DateTime     @default(now()) @map("created_at")
+  updated_at    DateTime     @updatedAt @map("updated_at")
+
+  repositories  Repository[]
+  sessions      Session[]
+
+  @@map("users")
+}
+
+model Repository {
+  id             String    @id @default(cuid())
+  github_id      Int       @unique @map("github_id")
+  name           String    @map("name")
+  full_name      String    @map("full_name")
+  url            String    @map("url")
+  is_private     Boolean   @default(false) @map("is_private")
+  last_synced_at DateTime? @map("last_synced_at")
+  created_at     DateTime  @default(now()) @map("created_at")
+  updated_at     DateTime  @updatedAt @map("updated_at")
+  owner_id       String    @map("owner_id")
+
+  owner          User      @relation(fields: [owner_id], references: [id])
+  metrics        Metric[]
+
+  @@index([owner_id])
+  @@index([github_id])
+  @@map("repositories")
+}
+
+model Metric {
+  id          String       @id @default(cuid())
+  repo_id     String       @map("repo_id")
+  type        MetricType   @map("type")
+  period      MetricPeriod @map("period")
+  payload     Json         @map("payload")
+  recorded_at DateTime     @map("recorded_at")
+  created_at  DateTime     @default(now()) @map("created_at")
+
+  repository  Repository   @relation(fields: [repo_id], references: [id])
+
+  @@index([repo_id, type, period])
+  @@map("metrics")
+}
+
+model Session {
+  id         String   @id @default(cuid())
+  user_id    String   @map("user_id")
+  token      String   @unique @map("token") @db.Text
+  expires_at DateTime @map("expires_at")
+  created_at DateTime @default(now()) @map("created_at")
+
+  user       User     @relation(fields: [user_id], references: [id])
+
+  @@index([user_id])
+  @@index([token])
+  @@map("sessions")
+}
