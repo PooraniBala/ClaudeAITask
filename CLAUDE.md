@@ -200,18 +200,24 @@ Before implementing any feature that touches the database schema, API contract, 
 
 Describe the feature, list the files that will change, and identify any migrations needed. Get the plan confirmed before writing code. This prevents schema drift and keeps migrations reviewable.
 
-### Custom Commands
+### Custom Commands (.claude/commands/)
 
-Three project-specific commands live in `.claude/commands/`:
+| Command            | File                                  | What It Does                                    |
+|--------------------|---------------------------------------|-------------------------------------------------|
+| `/devpulse:seed`   | `.claude/commands/devpulse/seed.md`   | Reset DB and re-seed with sample data           |
+| `/devpulse:audit`  | `.claude/commands/devpulse/audit.md`  | Full security audit + update SECURITY-AUDIT.md  |
+| `/devpulse:coverage` | `.claude/commands/devpulse/coverage.md` | Run tests with coverage + open HTML report  |
+
+Run any command by typing its slash command in the Claude Code CLI.
 
 **`/devpulse:seed`**
-Drops and recreates the development database, runs all Prisma migrations, then executes `prisma/seed.ts` with a realistic fixture set (3 repos, 2 users, 90 days of commit history). Use this after a schema change or when the local DB gets into a bad state.
+Drops all data, re-runs all Prisma migrations, and seeds 2 users, 6 repos, and 18+ metric records. Use this after a schema change or when the local DB gets into a bad state. Refuses to run outside `NODE_ENV=development`.
 
 **`/devpulse:audit`**
-Runs the full static analysis suite in sequence: `tsc --noEmit`, `eslint`, `prettier --check`, and `prisma validate`. Reports a pass/fail summary. Run before opening a PR.
+Runs a structured security checklist: `pnpm audit`, hardcoded-secret grep, per-route auth/ownership/validation checks, cookie flags, rate-limit presence, CORS headers, and env hygiene. Appends findings to `docs/SECURITY-AUDIT.md`. Accepts `$SCOPE=quick` for auth+validation only.
 
 **`/devpulse:coverage`**
-Runs `vitest run --coverage` and opens the HTML report. Highlights files below the 80 % threshold. Use this before marking a task done to verify coverage hasn't regressed.
+Runs `vitest run --coverage` (Istanbul provider, thresholds in `vitest.config.ts`), prints a per-layer summary table, lists any files below the 90%/85% threshold with specific uncovered line ranges, and opens the HTML report. Use this before marking a task done.
 
 ### Prompt Style (CRISP)
 
