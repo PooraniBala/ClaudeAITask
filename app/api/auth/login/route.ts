@@ -5,6 +5,7 @@ import { prisma } from '@/lib/prisma'
 import { signJwt } from '@/lib/auth'
 import { setSessionCookie } from '@/lib/cookies'
 import { LoginSchema } from '@/lib/validators'
+import { rateLimit } from '@/lib/rate-limit'
 import type { ApiResponse, UserInfo } from '@/lib/types'
 
 const INVALID_CREDENTIALS = 'Invalid credentials'
@@ -12,6 +13,18 @@ const INVALID_CREDENTIALS = 'Invalid credentials'
 export async function POST(
   req: NextRequest
 ): Promise<NextResponse<ApiResponse<UserInfo>>> {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const limit = rateLimit(`login:${ip}`, { limit: 5, windowMs: 60_000 })
+  if (!limit.success) {
+    return NextResponse.json(
+      { data: null, error: 'Too many login attempts. Try again in 1 minute.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil((limit.resetAt - Date.now()) / 1000)) },
+      }
+    )
+  }
+
   let body: unknown
   try {
     body = await req.json()

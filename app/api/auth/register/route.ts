@@ -6,11 +6,24 @@ import { prisma } from '@/lib/prisma'
 import { signJwt, UnauthorizedError } from '@/lib/auth'
 import { setSessionCookie } from '@/lib/cookies'
 import { RegisterSchema } from '@/lib/validators'
+import { rateLimit } from '@/lib/rate-limit'
 import type { ApiResponse, UserInfo } from '@/lib/types'
 
 export async function POST(
   req: NextRequest
 ): Promise<NextResponse<ApiResponse<UserInfo>>> {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown'
+  const limit = rateLimit(`register:${ip}`, { limit: 3, windowMs: 3_600_000 })
+  if (!limit.success) {
+    return NextResponse.json(
+      { data: null, error: 'Too many registration attempts. Try again in 1 hour.' },
+      {
+        status: 429,
+        headers: { 'Retry-After': String(Math.ceil((limit.resetAt - Date.now()) / 1000)) },
+      }
+    )
+  }
+
   let body: unknown
   try {
     body = await req.json()

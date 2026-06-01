@@ -80,13 +80,16 @@ async function main(): Promise<void> {
   await prisma.repository.deleteMany();
   await prisma.user.deleteMany();
 
-  const passwordHash = await bcrypt.hash('password123', 10);
+  // SEED DATA ONLY — never use these credentials in production
+  const seedPassword = process.env.SEED_PASSWORD ?? 'dev-only-seed-password'
+  const passwordHash = await bcrypt.hash(seedPassword, 10);
 
   await prisma.$transaction(async (tx) => {
     const alice = await tx.user.create({
       data: {
         email: 'alice@devpulse.dev',
         password_hash: passwordHash,
+        // Fake token — not a real GitHub PAT
         github_token: 'ghp_alice_seed_token_00000000000000000001',
       },
     });
@@ -95,6 +98,7 @@ async function main(): Promise<void> {
       data: {
         email: 'bob@devpulse.dev',
         password_hash: passwordHash,
+        // Fake token — not a real GitHub PAT
         github_token: 'ghp_bob_seed_token_000000000000000000001',
       },
     });
