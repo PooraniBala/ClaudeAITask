@@ -7,10 +7,17 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "lint": "next lint --max-warnings=0",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
-    "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
-    "typecheck": "tsc --noEmit"
+    "test:watch": "vitest",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "prisma db seed",
+    "db:studio": "prisma studio",
+    "db:reset": "prisma migrate reset --force && prisma db seed",
+    "audit": "pnpm audit --audit-level=high"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
