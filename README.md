@@ -1,6 +1,6 @@
 # DevPulse — Developer Analytics Dashboard
 
-![CI](https://github.com/PooraniBala/ClaudeAITask/actions/workflows/ci.yml/badge.svg)
+![CI](https://github.com/PooraniBala/DevPulse/actions/workflows/ci.yml/badge.svg)
 ![Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 
@@ -33,8 +33,8 @@
 
 ### 1. Clone and install
 ```bash
-git clone https://github.com/PooraniBala/ClaudeAITask.git
-cd ClaudeAITask
+git clone https://github.com/PooraniBala/DevPulse.git
+cd DevPulse
 pnpm install
 ```
 
