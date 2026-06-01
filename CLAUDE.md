@@ -266,3 +266,89 @@ Never retry automatically — always surface to the user.
 ### Environment Variables
 `GITHUB_TOKEN` — GitHub Personal Access Token
 Required scopes: `repo`, `read:user`, `read:org`
+
+---
+
+## 9. Final Architecture Patterns
+
+### Data Fetching Pattern (Frontend)
+
+All client-side data fetching uses SWR with the shared `fetcher` from `lib/utils.ts`:
+
+```ts
+const { data, error, isLoading } = useSWR<ApiResponse<T>>(
+  '/api/endpoint',
+  fetcher
+)
+if (isLoading) return <Spinner />
+if (error || !data?.data) return <ErrorBoundary />
+// use data.data
+```
+
+Never use `useEffect` + `fetch` directly — always SWR. This gives automatic
+revalidation, deduplication, and consistent loading/error states.
+
+### API Route Pattern (Backend)
+
+Every route handler follows this exact four-step structure:
+
+```ts
+export async function GET(request: NextRequest): Promise<NextResponse> {
+  // 1. Auth — throws UnauthorizedError if no valid session
+  let session: Awaited<ReturnType<typeof requireAuth>>
+  try {
+    session = await requireAuth(request)
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ data: null, error: 'Unauthorized' }, { status: 401 })
+    }
+    throw err
+  }
+
+  // 2. Validate — parse and validate all inputs with Zod before touching the DB
+  const parsed = SomeSchema.safeParse(input)
+  if (!parsed.success) {
+    return NextResponse.json(
+      { data: null, error: parsed.error.issues[0].message },
+      { status: 422 }
+    )
+  }
+
+  // 3. Ownership — verify the resource belongs to the authenticated user
+  const resource = await prisma.repository.findFirst({
+    where: { id: resourceId, owner_id: session.userId },
+  })
+  if (!resource) {
+    return NextResponse.json({ data: null, error: 'Not found' }, { status: 404 })
+    // Return 404 not 403 — do not confirm resource existence to non-owners
+  }
+
+  // 4. Respond — return the ApiResponse envelope
+  return NextResponse.json({ data: result, error: null }, { status: 200 })
+}
+```
+
+### MCP Sync Pattern
+
+Never call `lib/github.ts` functions directly from components or pages.
+The only valid call chain is:
+
+```
+Component → SWR hook → API route → lib/sync.ts → lib/github.ts → GitHub API
+```
+
+`lib/sync.ts` owns the upsert logic and the `last_synced_at` timestamp update.
+Routes call `syncRepoMetrics()` — they do not call `fetchCommitFrequency()` etc.
+
+### Error Handling Hierarchy
+
+```
+McpError       (GitHub API failures)  → caught in lib/sync.ts   → rethrown to route
+UnauthorizedError (bad/missing JWT)   → caught in route handler  → 401 response
+ZodError       (invalid input)        → caught in route handler  → 422 response
+Prisma P2002   (unique constraint)    → caught in route handler  → 409 response
+Unknown errors                        → re-thrown               → 500 (Next.js default)
+```
+
+All errors that reach the client go through the `{ data: null, error: string }`
+envelope — never raw stack traces or Prisma error objects.
